@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notion Radar Chart</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f7f6f3;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+            max-width: 700px;
+            width: 100%;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        
+        h1 {
+            font-size: 20px;
+            color: #37352f;
+            font-weight: 600;
+        }
+        
+        .subtitle {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        button {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-family: inherit;
+        }
+        
+        button:hover {
+            background: #c0392b;
+        }
+        
+        button.secondary {
+            background: #f0f0f0;
+            color: #37352f;
+        }
+        
+        button.secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        button.secondary.active {
+            background: #fde2e2;
+            color: #c0392b;
+        }
+        
+        .status {
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .status.demo {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status.live {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 450px;
+            margin-bottom: 16px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 8px;
+            margin-top: 16px;
+        }
+        
+        .stat-card {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            border: 1px solid #f0f0f0;
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            color: #6b7280;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #37352f;
+        }
+        
+        .stat-value.excellent { color: #10b981; }
+        .stat-value.good { color: #e74c3c; }
+        .stat-value.average { color: #f59e0b; }
+        .stat-value.needs-work { color: #6b7280; }
+        
+        .config-panel {
+            margin-top: 20px;
+            padding: 16px;
+            background: #f9fafb;
+            border-radius: 8px;
+            border: 1px dashed #e5e7eb;
+        }
+        
+        .config-panel h3 {
+            font-size: 13px;
+            color: #374151;
+            margin-bottom: 12px;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+        
+        .input-group label {
+            font-size: 12px;
+            color: #6b7280;
+            min-width: 100px;
+        }
+        
+        .input-group input {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: inherit;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #e74c3c;
+        }
+        
+        .helper-text {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-top: 8px;
+            line-height: 1.5;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .toggle-config {
+            font-size: 11px;
+            color: #e74c3c;
+            cursor: pointer;
+            text-decoration: underline;
+            margin-top: 8px;
+            display: inline-block;
+        }
+        
+        .refresh-info {
+            font-size: 11px;
+            color: #9ca3af;
+            text-align: center;
+            margin-top: 8px;
+        }
+        
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 12px;
+            z-index: 10;
+        }
+        
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #f0f0f0;
+            border-top-color: #e74c3c;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .error-box {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 12px;
+            color: #991b1b;
+            margin-top: 12px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>Side Scales Assessment</h1>
+                <div class="subtitle">8 properties rated 0-10</div>
+            </div>
+            <div class="controls">
+                <div class="status demo" id="statusBadge">
+                    <span class="dot"></span>
+                    <span id="statusText">Demo Mode</span>
+                </div>
+                <button onclick="toggleAutoRefresh()" id="autoBtn" class="secondary">Auto: OFF</button>
+                <button onclick="refreshData()">Refresh</button>
+            </div>
+        </div>
+        
+        <div class="chart-wrapper">
+            <div class="loading-overlay hidden" id="loading">
+                <div class="spinner"></div>
+            </div>
+            <canvas id="radarChart"></canvas>
+        </div>
+        
+        <div class="stats-grid" id="statsGrid"></div>
+        
+        <div class="refresh-info" id="refreshInfo"></div>
+        
+        <div class="error-box" id="errorBox"></div>
+        
+        <span class="toggle-config" onclick="toggleConfig()">Configure Notion Connection</span>
+        
+        <div class="config-panel hidden" id="configPanel">
+            <h3>Notion API Configuration</h3>
+            <div class="input-group">
+                <label>Integration Token:</label>
+                <input type="password" id="notionToken" placeholder="secret_...">
+            </div>
+            <div class="input-group">
+                <label>Database ID:</label>
+                <input type="text" id="databaseId" placeholder="a1b2c3d4...">
+            </div>
+            <div class="input-group">
+                <label>Name Property:</label>
+                <input type="text" id="nameProp" value="Name" placeholder="Property name in Notion">
+            </div>
+            <div class="input-group">
+                <label>Rate Property:</label>
+                <input type="text" id="rateProp" value="Rate" placeholder="Number property in Notion">
+            </div>
+            <button onclick="saveConfig()" style="margin-top:4px; width:100%;">Connect to Notion</button>
+            <div class="helper-text">
+                1. Go to <a href="https://www.notion.so/my-integrations" target="_blank">notion.so/my-integrations</a> and create an integration<br>
+                2. Copy the Internal Integration Token and paste it above<br>
+                3. Open your Notion database, click "Share", and invite your integration<br>
+                4. Copy the database ID from the URL (the 32-char string after the last /)<br>
+                5. Click "Connect to Notion" above<br><br>
+                <strong>Property names are auto-fetched from your database.</strong> Only change the fields above if your Notion properties are named something other than "Name" and "Rate".
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const demoData = [
+            { name: 'Mental', rate: 8 },
+            { name: 'Physical', rate: 6 },
+            { name: 'Emotional', rate: 7 },
+            { name: 'Social', rate: 9 },
+            { name: 'Creative', rate: 5 },
+            { name: 'Financial', rate: 7 },
+            { name: 'Spiritual', rate: 4 },
+            { name: 'Professional', rate: 8 }
+        ];
+        
+        let chart;
+        let currentData = [...demoData];
+        let autoRefreshInterval = null;
+        
+        function initChart() {
+            const ctx = document.getElementById('radarChart').getContext('2d');
+            const labels = currentData.map(d => d.name);
+            const values = currentData.map(d => d.rate);
+            
+            chart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Score (0-10)',
+                        data: values,
+                        backgroundColor: 'rgba(231, 76, 60, 0.2)',
+                        borderColor: 'rgba(231, 76, 60, 1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: 'rgba(231, 76, 60, 1)',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            min: 0,
+                            max: 10,
+                            ticks: {
+                                stepSize: 2,
+                                font: { size: 10 }
+                            },
+                            pointLabels: {
+                                font: { size: 12, weight: '600' },
+                                color: '#374151'
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            },
+                            angleLines: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(55, 53, 47, 0.9)',
+                            padding: 10,
+                            cornerRadius: 6,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.raw + '/10';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateStats() {
+            const grid = document.getElementById('statsGrid');
+            grid.innerHTML = '';
+            
+            currentData.forEach(item => {
+                const val = item.rate;
+                let cls = 'needs-work';
+                if (val >= 8) cls = 'excellent';
+                else if (val >= 6) cls = 'good';
+                else if (val >= 4) cls = 'average';
+                
+                const card = document.createElement('div');
+                card.className = 'stat-card';
+                card.innerHTML = `
+                    <div class="stat-label">${item.name}</div>
+                    <div class="stat-value ${cls}">${val}<span style="font-size:11px;color:#9ca3af;font-weight:400">/10</span></div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+        
+        async function fetchNotionData() {
+            const token = localStorage.getItem('notionToken');
+            const dbId = localStorage.getItem('databaseId');
+            const nameProperty = localStorage.getItem('nameProp') || 'Name';
+            const rateProperty = localStorage.getItem('rateProp') || 'Rate';
+            
+            if (!token || !dbId) {
+                throw new Error('Notion not configured');
+            }
+            
+            // Call the backend proxy instead of Notion API directly
+            const response = await fetch('/api/notion', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    token: token,
+                    dbId: dbId,
+                    nameProperty: nameProperty,
+                    rateProperty: rateProperty
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || `API error: ${response.status}`);
+            }
+            
+            return data.results;
+        }
+        
+        async function refreshData() {
+            const loading = document.getElementById('loading');
+            const errorBox = document.getElementById('errorBox');
+            errorBox.style.display = 'none';
+            loading.classList.remove('hidden');
+            
+            try {
+                const token = localStorage.getItem('notionToken');
+                if (token) {
+                    const notionData = await fetchNotionData();
+                    if (notionData.length > 0) {
+                        currentData = notionData;
+                        updateStatus('live', 'Live: Notion');
+                    } else {
+                        throw new Error('No data found');
+                    }
+                } else {
+                    currentData = [...demoData];
+                    updateStatus('demo', 'Demo Mode');
+                }
+                
+                chart.data.labels = currentData.map(d => d.name);
+                chart.data.datasets[0].data = currentData.map(d => d.rate);
+                chart.update();
+                updateStats();
+                updateRefreshInfo();
+                
+            } catch (err) {
+                console.error('Refresh error:', err);
+                errorBox.textContent = 'Error: ' + err.message;
+                errorBox.style.display = 'block';
+                
+                // Fall back to demo data
+                currentData = [...demoData];
+                chart.data.labels = currentData.map(d => d.name);
+                chart.data.datasets[0].data = currentData.map(d => d.rate);
+                chart.update();
+                updateStats();
+                updateStatus('demo', 'Demo Mode');
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+        
+        function updateStatus(type, text) {
+            const badge = document.getElementById('statusBadge');
+            const statusText = document.getElementById('statusText');
+            badge.className = 'status ' + type;
+            statusText.textContent = text;
+        }
+        
+        function updateRefreshInfo() {
+            const now = new Date();
+            document.getElementById('refreshInfo').textContent = 
+                `Last updated: ${now.toLocaleTimeString()}`;
+        }
+        
+        function toggleAutoRefresh() {
+            const btn = document.getElementById('autoBtn');
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                btn.textContent = 'Auto: OFF';
+                btn.classList.remove('active');
+            } else {
+                refreshData();
+                autoRefreshInterval = setInterval(refreshData, 30000);
+                btn.textContent = 'Auto: ON';
+                btn.classList.add('active');
+            }
+        }
+        
+        function toggleConfig() {
+            document.getElementById('configPanel').classList.toggle('hidden');
+        }
+        
+        function saveConfig() {
+            const token = document.getElementById('notionToken').value.trim();
+            const dbId = document.getElementById('databaseId').value.trim().replace(/-/g, '');
+            const nameProp = document.getElementById('nameProp').value.trim() || 'Name';
+            const rateProp = document.getElementById('rateProp').value.trim() || 'Rate';
+            
+            if (!token || !dbId) {
+                alert('Please provide both token and database ID');
+                return;
+            }
+            
+            localStorage.setItem('notionToken', token);
+            localStorage.setItem('databaseId', dbId);
+            localStorage.setItem('nameProp', nameProp);
+            localStorage.setItem('rateProp', rateProp);
+            
+            alert('Configuration saved! Click Refresh to load Notion data.');
+            document.getElementById('configPanel').classList.add('hidden');
+            refreshData();
+        }
+        
+        function loadSavedConfig() {
+            const token = localStorage.getItem('notionToken');
+            const dbId = localStorage.getItem('databaseId');
+            if (token) document.getElementById('notionToken').value = token;
+            if (dbId) document.getElementById('databaseId').value = dbId;
+        }
+        
+        window.onload = function() {
+            initChart();
+            updateStats();
+            loadSavedConfig();
+            updateRefreshInfo();
+            
+            if (localStorage.getItem('notionToken')) {
+                refreshData();
+            }
+        };
+    </script>
+</body>
+</html>
