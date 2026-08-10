@@ -6,34 +6,31 @@ exports.handler = async (event, context) => {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS'
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
       },
       body: ''
     };
   }
 
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ error: 'Method not allowed. Use POST.' })
-    };
-  }
-
   try {
-    const { token, dbId, nameProperty, rateProperty } = JSON.parse(event.body);
+    // Credentials now come from Netlify environment variables,
+    // not from the browser/client. This means the chart works
+    // the same way everywhere: direct visits, embeds, any device.
+    const token = process.env.NOTION_TOKEN;
+    const dbId = process.env.NOTION_DB_ID;
+    const nameProperty = process.env.NOTION_NAME_PROP || 'Name';
+    const rateProperty = process.env.NOTION_RATE_PROP || 'Rate';
 
     if (!token || !dbId) {
       return {
-        statusCode: 400,
+        statusCode: 500,
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ error: 'Missing token or database ID' })
+        body: JSON.stringify({
+          error: 'Server is not configured. Add NOTION_TOKEN and NOTION_DB_ID as environment variables in Netlify.'
+        })
       };
     }
 
@@ -57,8 +54,8 @@ exports.handler = async (event, context) => {
           'Access-Control-Allow-Origin': '*',
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
-          error: data.message || `Notion API error: ${response.status}` 
+        body: JSON.stringify({
+          error: data.message || `Notion API error: ${response.status}`
         })
       };
     }
@@ -66,13 +63,13 @@ exports.handler = async (event, context) => {
     // Extract and format the data
     const results = data.results.map(page => {
       const props = page.properties;
-      const nameVal = props[nameProperty]?.title?.[0]?.plain_text || 
-                     props[nameProperty]?.rich_text?.[0]?.plain_text || 
+      const nameVal = props[nameProperty]?.title?.[0]?.plain_text ||
+                     props[nameProperty]?.rich_text?.[0]?.plain_text ||
                      'Unnamed';
       const rateVal = props[rateProperty]?.number || 0;
-      return { 
-        name: nameVal, 
-        rate: Math.min(10, Math.max(0, rateVal)) 
+      return {
+        name: nameVal,
+        rate: Math.min(10, Math.max(0, rateVal))
       };
     }).filter(item => item.name !== 'Unnamed');
 
